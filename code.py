@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 
-#Class=ScoreCell__Score gives us the actual game scores 
+#Class=ScorweCell__Score gives us the actual game scores 
 #next need to find team names (nets, bucks, 76ers, bulls)
 
 
