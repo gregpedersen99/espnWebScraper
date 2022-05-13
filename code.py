@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Apr 30 13:16:02 2022
+Created on Fri May 13 10:47:40 2022
 
 @author: gregpedersen
 """
@@ -22,7 +22,7 @@ import pandas as pd
 #(which is harcoded for now until its more functional) and runs functions
 def run_program():
     date = int(input("Please enter the date (YYYY/MM/DD): "))
-    myUrl = get_date("20220510")
+    myUrl = get_date("20220512")
     scores = display_page(myUrl)
     #for every game in the scores variable returned by display_page
     for element in scores:
@@ -34,8 +34,10 @@ def run_program():
         print(element['Team1'], element['Team1_Score'])
         print(element['Team2'], element['Team2_Score'])
         #Print the box scores
-        getTeamStats(boxScore[0])
-        getTeamStats(boxScore[1])
+        team1 = getTeamStats(boxScore[0])
+        team2 = getTeamStats(boxScore[1])
+        print(team1.iloc[:,0:12])
+        print(team2.iloc[:,0:12])
     
 
 
@@ -154,6 +156,12 @@ def scrapeStats(gameID):
 #This needs to become a dictionary, thats next step
 import re
 
+
+#This function scrapes game by game and pulls stats from ESPn, prints them out based around date input
+#creates rosters, and displays stats to the end user. In addition, I also used this to calculate 
+#gamescore, as its a good way to filter out the players we dont care as much about. For each game, each 
+#roster is sorted by gamescore, and the players with the 3 highest scores are displayed for the end user.
+
 def getTeamStats(team):
     df = pd.DataFrame(columns = ['name', 'position','minutes', 'fg', '3pt', 'ft', 'OREB', 'DREB', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF', '+/-', 'pts'])
 
@@ -163,6 +171,7 @@ def getTeamStats(team):
         players = []
         substring = "DNP" #Created these two strings so players that contain this are disqualified
         substring2 = "Has not"
+        substring3 = "TEAM" #interesting issue fixed here. I originally didn't have this, but if theres no player that didn't play, this gives us an error. Good to know in the future going forward
 #print(trial)
         trial2 = trial.split('class=') #split again on the class= strings 
         for element2 in trial2[1:]: #taking off the first element because its an unneeded naming parameter
@@ -170,15 +179,51 @@ def getTeamStats(team):
             trial4 = trial3[trial3.find('>')+1:] #These two lines fruther splits the strings among "<" and ">"
             trial5 = trial4[:trial4.find('<')]
             players.append(trial5) #Appends it to a list at the end, preferrably this would be a dictionary 
-    
+            #print(players)
         substring_in_list = any(substring in string for string in players) #return true if the string is found, false if not found 
         substring_in_list2 = any(substring2 in string for string in players)
+        substring_in_list3 = any(substring3 in string for string in players)
+
         if substring_in_list == False: #If it containds the first string, check to see if it contains the second
             if substring_in_list2 == False: #If it contains the second string, disqualify it
-                if len(players[:-1]) != 0: #Kinda lazy, but it was adding an empty list 
-                    a_series = pd.Series(players[:-1], index = df.columns) #Create an series with new info
-                    df = df.append(a_series, ignore_index=True) #Append series to the dataframe
-    print(df)               
+                if substring_in_list3 == False: #If TEAM stats are part of it disqualify 
+                    if len(players[:-1]) != 0: #Kinda lazy, but it was adding an empty list 
+                        a_series = pd.Series(players[:-1], index = df.columns) #Create an series with new info
+                        df = df.append(a_series, ignore_index=True) #Append series to the dataframe
+    #now that we have all of our information, the next thing to do is calculate the gamescores 
+    #Splitting the fg number into 2 for game score calculation
+    newFg = df["fg"].str.split("-", n=1, expand = True)
+    df["FGA"] = newFg[1]
+    df["FGM"] = newFg[0]
+    #Adding free throws for gamescore calculation 
+    newFt = df["ft"].str.split("-", n=1, expand = True)
+    df["FTA"] = newFt[1]
+    df["FTM"] = newFt[0]
+    
+    df['pts'] = df["pts"].astype(str).astype(int)
+    df['FGM'] = df["FGM"].astype(str).astype(int)
+    df['OREB'] = df["OREB"].astype(str).astype(int)
+    df['DREB'] = df["DREB"].astype(str).astype(int)
+    df['STL'] = df["STL"].astype(str).astype(int)
+    df['AST'] = df["AST"].astype(str).astype(int)
+    df['BLK'] = df["BLK"].astype(str).astype(int)
+    df['FGA'] = df["FGA"].astype(str).astype(int)
+    df['FTM'] = df["FTM"].astype(str).astype(int)
+    df['PF'] = df["PF"].astype(str).astype(int)
+    df['TO'] = df["TO"].astype(str).astype(int)
+    df['FTA'] = df["FTA"].astype(str).astype(int)
+
+    df["FTMiss"] = df["FTA"] - df["FTM"]
+    
+    #now that we have set our typing, we need to use this to get our gamescore 
+    #Game Score Formula=(Points)+0.4*(Field Goals Made)+0.7*(Offensive Rebounds)+0.3*(Defensive rebounds)+(Steals)+0.7*(Assists)+0.7*(Blocked Shots)- 0.7*(Field Goal Attempts)-0.4*(Free Throws Missed) – 0.4*(Personal Fouls)-(Turnovers)
+    df["GS"]=df["pts"]+0.4*df["FGA"]+0.7*df["OREB"]+0.3*df["DREB"]+df["STL"]+0.7*df["AST"]+0.7*df["BLK"]-0.7*df["FGA"]-0.4*df["FTM"]-0.4*df["PF"]-df["TO"]
+    
+    df = df.sort_values('GS', ascending = False)
+    df = df[0:3]
+    
+    df = df.iloc[:,[0,2,3,4,8,9,10,11,12,13,14,15,21]]
+    #print(df)
     return(df)
 
 #print(df)
@@ -191,11 +236,3 @@ run_program()
 #are having really good games. Id also like to narrow down the box scores to exclude certain 
 #stats, and show fewer players, preferrably, Id be able to sort by minutes and take the top couple? 
 #not super sure how this feature is going to work. 
-
-
-
-
-
-
-        
-        
