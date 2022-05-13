@@ -12,9 +12,7 @@ This is the backend code for this project. It essentially:
   
   -Returns the stats for all players
   
-  -Calculates the game score for each player, then sorts them by gamescore, read about GS here: https://itsxandery.com/do-stats-matter-in-basketball/
-  
-      -While Gamescore isn't perfect, it does all we need it to do, which is parse out the most relevant players, and leave the lesser known ones 
+  -Calculates the game score for each player, then sorts them by gamescore, read about GS here: https://itsxandery.com/do-stats-matter-in-basketball/. While Gamescore isn't perfect, it does all we need it to do, which is parse out the most relevant players, and leave the lesser known ones 
       
   -Returns the players with the best game score, so we can see only the most relevant numbers. 
 
